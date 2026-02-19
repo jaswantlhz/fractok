@@ -1,0 +1,254 @@
+# Migration Guide — FracAssets Stack Upgrade
+
+## Current State vs Target
+
+| Component | Current | Target |
+|-----------|---------|--------|
+| Node.js | v20.6.1 | v22.x LTS |
+| Vite | 7.3.1 ✅ | 7.3.1 (already latest) |
+| React | 19.2.0 ✅ | 19.2.0 (already latest) |
+| Express | 5.2.1 ✅ | 5.2.1 (already latest) |
+| MongoDB driver | `pymongo` (sync) | `motor` (async) + MongoDB Atlas |
+| Python | unknown | 3.11+ recommended |
+
+> [!NOTE]
+> Your frontend packages (React 19, Vite 7, React Router 6) are **already on the latest versions**. The only blocking issue is Node.js being too old to run Vite 7.
+
+---
+
+## Step 1 — Upgrade Node.js to v22 LTS
+
+Vite 7 and `@vitejs/plugin-react` 5 require **Node.js ≥ 20.19 or ≥ 22.12**.
+
+### Option A: Using `nvm-windows` (recommended)
+
+```powershell
+# 1. Download and install nvm-windows from:
+# https://github.com/coreybutler/nvm-windows/releases
+# (download nvm-setup.exe)
+
+# 2. After installing nvm, open a NEW terminal and run:
+nvm install 22
+nvm use 22
+
+# 3. Verify
+node --version   # should print v22.x.x
+npm --version    # should print 10.x.x
+```
+
+### Option B: Direct installer
+
+Download the v22 LTS installer from [nodejs.org/en/download](https://nodejs.org/en/download) and run it. It will replace your current Node.js.
+
+### After upgrading Node.js
+
+```powershell
+# Reinstall frontend deps (clears old node_modules)
+cd f:\fracassets\FracAssets\myapp
+Remove-Item -Recurse -Force node_modules
+npm install
+
+# Reinstall backend deps
+cd f:\fracassets\FracAssets\backend
+Remove-Item -Recurse -Force node_modules
+npm install
+```
+
+---
+
+## Step 2 — Verify Frontend (Vite + React)
+
+After the Node.js upgrade, your frontend should work perfectly — all packages are already latest.
+
+```powershell
+cd f:\fracassets\FracAssets\myapp
+npm run dev      # should start with no warnings
+npm run build    # should complete cleanly
+```
+
+### Optional: Add `nodemon`-equivalent for frontend HMR
+
+Vite already has HMR built in. No changes needed.
+
+---
+
+## Step 3 — Modernize Express Backend
+
+### 3a. Add `nodemon` for auto-restart
+
+```powershell
+cd f:\fracassets\FracAssets\backend
+npm install --save-dev nodemon
+```
+
+Update [package.json](file:///f:/fracassets/FracAssets/package.json) scripts:
+
+```json
+"scripts": {
+  "start": "node server.js",
+  "dev": "nodemon server.js"
+}
+```
+
+### 3b. Upgrade `node-fetch` to v3 (native ESM)
+
+Your backend uses `"type": "commonjs"` so `node-fetch@2` is correct. If you ever switch to ESM (`"type": "module"`), upgrade to v3:
+
+```powershell
+npm install node-fetch@3
+```
+
+And change all `require("node-fetch")` to `import fetch from "node-fetch"`.
+
+### 3c. Move JWT secret to [.env](file:///f:/fracassets/test_net/.env)
+
+Create `f:\fracassets\FracAssets\backend\.env`:
+
+```env
+PORT=5000
+JWT_SECRET=your-super-secret-key-change-this
+HEDERA_API_URL=http://localhost:8000
+```
+
+Then update [authRoutes.js](file:///f:/fracassets/FracAssets/backend/routes/authRoutes.js) and [authMiddleware.js](file:///f:/fracassets/FracAssets/backend/middleware/authMiddleware.js) to use `process.env.JWT_SECRET` instead of the hardcoded `"secretkey"`.
+
+---
+
+## Step 4 — MongoDB Migration
+
+### Option A: MongoDB Atlas (Cloud — recommended for production)
+
+1. Go to [cloud.mongodb.com](https://cloud.mongodb.com) and create a free account
+2. Create a **free M0 cluster** (512MB, free forever)
+3. Create a database user (username + password)
+4. Whitelist your IP (or use `0.0.0.0/0` for development)
+5. Click **Connect → Drivers → Python** and copy the connection string
+
+Your [.env](file:///f:/fracassets/test_net/.env) in `test_net/` becomes:
+
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+MONGO_DB_NAME=fracassets
+```
+
+### Option B: Local MongoDB (development only)
+
+```powershell
+# Install MongoDB Community Edition
+# https://www.mongodb.com/try/download/community
+# Choose Windows, MSI installer
+
+# After install, start the service:
+net start MongoDB
+
+# Verify it's running:
+mongosh --eval "db.runCommand({ connectionStatus: 1 })"
+```
+
+[.env](file:///f:/fracassets/test_net/.env):
+```env
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=fracassets
+```
+
+### Upgrade to `motor` (async MongoDB driver)
+
+The current [user_onboarding.py](file:///f:/fracassets/test_net/user_onboarding.py) uses `pymongo` (synchronous). Since FastAPI is async, switch to `motor`:
+
+```powershell
+cd f:\fracassets\test_net
+pip install motor
+```
+
+Replace in [user_onboarding.py](file:///f:/fracassets/test_net/user_onboarding.py):
+
+```python
+# Before (pymongo — sync)
+from pymongo import MongoClient
+mongo_client = MongoClient(MONGO_URI)
+
+# After (motor — async)
+from motor.motor_asyncio import AsyncIOMotorClient
+mongo_client = AsyncIOMotorClient(MONGO_URI)
+```
+
+And make your route handlers `async`:
+
+```python
+@app.post("/register", response_model=UserRegistrationResponse)
+async def register_user(user_req: UserRegistrationRequest):
+    existing = await users_collection.find_one({"email": user_req.email})
+    ...
+    result = await users_collection.insert_one(user_doc)
+```
+
+---
+
+## Step 5 — Python Environment
+
+### Upgrade Python to 3.11+
+
+Download from [python.org/downloads](https://www.python.org/downloads/). Python 3.11 is significantly faster than 3.9/3.10.
+
+### Use a virtual environment
+
+```powershell
+cd f:\fracassets\test_net
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+
+# Install all dependencies
+pip install fastapi uvicorn[standard] motor pymongo pydantic[email] python-dotenv hiero-sdk-python
+pip freeze > requirements.txt
+```
+
+### Create `requirements.txt`
+
+```
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+motor>=3.4.0
+pymongo>=4.7.0
+pydantic[email]>=2.7.0
+python-dotenv>=1.0.0
+hiero-sdk-python
+```
+
+---
+
+## Step 6 — Final Checklist
+
+```
+[ ] Node.js upgraded to v22 LTS
+[ ] node_modules reinstalled in myapp/ and backend/
+[ ] npm run dev works without Node version warnings
+[ ] npm run build completes cleanly
+[ ] nodemon installed in backend/
+[ ] JWT_SECRET moved to backend/.env
+[ ] MongoDB Atlas cluster created (or local MongoDB running)
+[ ] MONGO_URI and MONGO_DB_NAME set in test_net/.env
+[ ] Python venv created with requirements.txt
+[ ] motor installed and user_onboarding.py updated to async
+[ ] Python API starts: uvicorn testnet_test:app --reload --port 8000
+[ ] Express backend starts: npm run dev (in backend/)
+[ ] React frontend starts: npm run dev (in myapp/)
+```
+
+---
+
+## Quick Start After Migration
+
+```powershell
+# Terminal 1 — Python Hedera API
+cd f:\fracassets\test_net
+.venv\Scripts\Activate.ps1
+uvicorn testnet_test:app --reload --port 8000
+
+# Terminal 2 — Express backend
+cd f:\fracassets\FracAssets\backend
+npm run dev
+
+# Terminal 3 — React frontend
+cd f:\fracassets\FracAssets\myapp
+npm run dev
+```

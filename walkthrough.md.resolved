@@ -1,0 +1,102 @@
+# MVP Fractional Asset Tokenization DApp — Walkthrough
+
+## What Was Built
+
+A complete MVP for a fractional real-world asset tokenization platform on Hedera Testnet, with MetaMask Hedera Snap integration.
+
+---
+
+## Changes Made
+
+### New Frontend Files
+
+| File | Purpose |
+|------|---------|
+| [hederaService.js](file:///f:/fracassets/FracAssets/myapp/src/services/hederaService.js) | MetaMask Hedera Snap helpers: install, connect, balance, transfer, associate, sign |
+| [Marketplace.jsx](file:///f:/fracassets/FracAssets/myapp/src/pages/Marketplace.jsx) | Browse tokenized real-world assets with category filter + Snap token transfer on invest |
+| [TokenizeAsset.jsx](file:///f:/fracassets/FracAssets/myapp/src/pages/TokenizeAsset.jsx) | Form to create a Hedera token representing a real-world asset |
+| [Register.jsx](file:///f:/fracassets/FracAssets/myapp/src/pages/Register.jsx) | User onboarding: name, email, address, KYC proof → creates Hedera account |
+| [Navbar.jsx](file:///f:/fracassets/FracAssets/myapp/src/pages/Navbar.jsx) | Full navbar with all routes, wallet status chip, mobile menu |
+
+### Modified Frontend Files
+
+| File | Change |
+|------|--------|
+| [WalletContext.jsx](file:///f:/fracassets/FracAssets/myapp/src/context/WalletContext.jsx) | Replaced mock with real MetaMask Hedera Snap: connect, balance, Hedera account ID |
+| [api.js](file:///f:/fracassets/FracAssets/myapp/src/services/api.js) | Added: [registerUser](file:///f:/fracassets/FracAssets/myapp/src/services/api.js#27-38), [tokenizeAsset](file:///f:/fracassets/FracAssets/myapp/src/services/api.js#74-88), [mintToken](file:///f:/fracassets/FracAssets/myapp/src/services/api.js#89-103), [transferTokenApi](file:///f:/fracassets/FracAssets/myapp/src/services/api.js#104-118), [getHederaBalance](file:///f:/fracassets/FracAssets/myapp/src/services/api.js#119-126) |
+| [Wallet.jsx](file:///f:/fracassets/FracAssets/myapp/src/pages/Wallet.jsx) | Shows real Hedera account ID, HBAR balance, token holdings, Snap status |
+| [Login.jsx](file:///f:/fracassets/FracAssets/myapp/src/pages/Login.jsx) | Real MetaMask Snap connect button + link to Register |
+| [App.jsx](file:///f:/fracassets/FracAssets/myapp/src/App.jsx) | Added routes: `/marketplace`, `/tokenize`, `/register`; auth guard accepts wallet OR email login |
+
+### New Backend Files
+
+| File | Purpose |
+|------|---------|
+| [hederaRoutes.js](file:///f:/fracassets/FracAssets/backend/routes/hederaRoutes.js) | Express proxy to Python Hedera API: create-token, mint, transfer, create-account, balance |
+
+### Modified Backend Files
+
+| File | Change |
+|------|--------|
+| [fakeData.js](file:///f:/fracassets/FracAssets/backend/data/fakeData.js) | 10 real-world assets across 5 categories: Real Estate, Art, Commodities, Infrastructure, Crypto |
+| [server.js](file:///f:/fracassets/FracAssets/backend/server.js) | Registered `hederaRoutes` at `/api/hedera`, added health check |
+
+---
+
+## Architecture
+
+```mermaid
+graph LR
+    A["Browser\n(React + Vite)"] -->|"eth_requestAccounts\nwallet_invokeSnap"| B["MetaMask\n+ Hedera Snap"]
+    B -->|"Hedera Testnet"| C["Hedera Network"]
+    A -->|"REST /api/*"| D["Express Backend\n:5000"]
+    D -->|"REST /create-token\n/mint /transfer"| E["Python Hedera API\n:8000 (FastAPI)"]
+    E --> C
+```
+
+---
+
+## How to Run
+
+### 1. Python Hedera API
+```bash
+cd f:\fracassets\test_net
+uvicorn testnet_test:app --reload --port 8000
+```
+
+### 2. Express Backend
+```bash
+cd f:\fracassets\FracAssets\backend
+npm start
+```
+
+### 3. React Frontend
+```bash
+cd f:\fracassets\FracAssets\myapp
+npm run dev
+```
+
+---
+
+## MetaMask Snap Flow
+
+1. User clicks **"Connect MetaMask + Hedera Snap"** on Login or Wallet page
+2. MetaMask prompts to install `@hashgraph/hedera-wallet-snap`
+3. After approval, the Snap fetches the user's Hedera Testnet account ID
+4. HBAR balance is displayed in the Wallet page and Navbar
+5. When investing in a tokenized asset, the Snap signs the HTS token transfer
+
+---
+
+## Build Verification
+
+```
+✓ 53 modules transformed
+dist/index.html                  0.55 kB │ gzip:  0.34 kB
+dist/assets/index-B4AMUl9W.css   0.15 kB │ gzip:  0.12 kB
+dist/assets/index-_gUxI3I2.js  282.33 kB │ gzip: 84.27 kB
+✓ built in 1.35s
+```
+
+> [!NOTE]
+> Node.js 20.6.1 is below Vite 7's requirement of 20.19+. The build still succeeds but upgrading Node.js is recommended for full compatibility.
