@@ -35,30 +35,26 @@ const Dashboard = () => {
         const data = await getPortfolio(token);
 
         let totalInvested = 0;
-        let portfolioValue = 0;
 
         data.forEach((item) => {
-          totalInvested += item.amount * item.investedPrice;
-          portfolioValue += item.amount * item.currentPrice;
+          // total_cost is amount * price_per_unit, stored in MongoDB
+          totalInvested += Number(item.total_cost ?? 0);
         });
-
-        const profitLossText =
-          portfolioValue >= totalInvested ? "Profit" : "Loss";
 
         setOverview({
           totalInvested: `$${totalInvested.toFixed(2)}`,
-          portfolioValue: `$${portfolioValue.toFixed(2)}`,
-          profitLoss: profitLossText,
+          portfolioValue: `$${totalInvested.toFixed(2)}`, // no live price feed yet
+          profitLoss: "—",
           activeAssets: data.length,
           walletStatus: "Connected",
         });
 
         const formattedTransactions = data.map((item, index) => ({
           _id: index,
-          assetName: item.assetName,
+          assetName: item.asset_name,
           fractions: item.amount,
-          date: new Date().toISOString(),
-          amount: (item.amount * item.currentPrice).toFixed(2),
+          date: item.created_at || new Date().toISOString(),
+          amount: Number(item.total_cost ?? 0).toFixed(2),
           status: item.status,
           type: "Buy",
         }));
@@ -161,11 +157,10 @@ const Dashboard = () => {
                 className="flex flex-col sm:flex-row sm:items-center justify-between py-4"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`p-2 rounded-md ${
-                    tx.type === "Buy"
+                  <div className={`p-2 rounded-md ${tx.type === "Buy"
                       ? "bg-emerald-900 text-emerald-400"
                       : "bg-rose-900 text-rose-400"
-                  }`}>
+                    }`}>
                     {tx.type === "Buy" ? <FaArrowUp /> : <FaArrowDown />}
                   </div>
 
@@ -207,9 +202,8 @@ const StatCard = ({ icon, title, value, sub }) => (
     <p className="text-2xl font-semibold">{value}</p>
 
     {sub && (
-      <p className={`text-sm mt-2 ${
-        sub === "Profit" ? "text-emerald-400" : "text-rose-400"
-      }`}>
+      <p className={`text-sm mt-2 ${sub === "Profit" ? "text-emerald-400" : "text-rose-400"
+        }`}>
         {sub}
       </p>
     )}

@@ -86,8 +86,14 @@ const Marketplace = () => {
                 await transferToken(selectedAsset.tokenId, hederaAccountId, enteredShares);
             }
 
-            // Always record in backend
-            await invest(selectedAsset.id, enteredShares);
+            // Always record in backend with full asset info
+            await invest({
+                token_id: selectedAsset.tokenId || selectedAsset.token_id || "",
+                asset_name: selectedAsset.name,
+                symbol: selectedAsset.symbol,
+                amount: enteredShares,
+                price_per_unit: price,
+            });
 
             setTxStatus("success");
             setTxMessage(`Successfully purchased ${enteredShares} fraction(s) of ${selectedAsset.name}!`);
@@ -166,8 +172,8 @@ const Marketplace = () => {
                             key={cat}
                             onClick={() => setCategory(cat)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${category === cat
-                                    ? "bg-indigo-600 border-indigo-500 text-white"
-                                    : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
+                                ? "bg-indigo-600 border-indigo-500 text-white"
+                                : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
                                 }`}
                         >
                             {cat}
@@ -318,8 +324,8 @@ const Marketplace = () => {
                                     disabled={isInvalid}
                                     onClick={confirmInvest}
                                     className={`w-full sm:w-auto px-4 py-2 rounded-xl text-sm transition ${isInvalid
-                                            ? "bg-gray-700 cursor-not-allowed"
-                                            : "bg-indigo-600 hover:bg-indigo-700"
+                                        ? "bg-gray-700 cursor-not-allowed"
+                                        : "bg-indigo-600 hover:bg-indigo-700"
                                         }`}
                                 >
                                     Confirm Investment

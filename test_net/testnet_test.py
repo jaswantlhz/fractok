@@ -15,19 +15,37 @@ from hiero_sdk_python import (
     TransferTransaction)
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pymongo import MongoClient
 import requests
-
+from datetime import datetime, timezone
 
 load_dotenv()
 
-# Initialize Client Globally
-try:
-    operator_id = AccountId.from_string(os.getenv("OPERATOR_ID"))
-    operator_key = PrivateKey.from_string(os.getenv("OPERATOR_KEY"))
+# ── MongoDB ────────────────────────────────────────────────────────────────
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "hedera_users_db")
 
+try:
+    mongo_client = MongoClient(MONGO_URI)
+    db = mongo_client[MONGO_DB_NAME]
+    marketplace_col = db["marketplace"]
+    portfolio_col   = db["portfolio"]
+    marketplace_col.create_index("token_id", unique=True)
+    portfolio_col.create_index([("auth0_id", 1), ("token_id", 1)])
+    print(f"MongoDB connected: {MONGO_DB_NAME}")
+except Exception as e:
+    print(f"MongoDB connection failed: {e}")
+    db = None
+    marketplace_col = None
+    portfolio_col   = None
+
+# ── Hedera Client ──────────────────────────────────────────────────────────
+try:
+    operator_id  = AccountId.from_string(os.getenv("OPERATOR_ID"))
+    operator_key = PrivateKey.from_string(os.getenv("OPERATOR_KEY"))
     client = Client.for_testnet()
     client.set_operator(operator_id, operator_key)
     print("Client initialized successfully.")
@@ -45,16 +63,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Request Models ─────────────────────────────────────────────────────────
+
+class CreateTokenRequest(BaseModel):
+    name: str
+    symbol: str
+    decimals: int = 0
+    initial_supply: int = 1000
+    max_supply: int = 10000
+    token_type: str = "FUNGIBLE_COMMON"
+    supply_type: str = "FINITE"
+    freeze_default: bool = False
+    admin_key: str = None
+    supply_key: str = None
+    freeze_key: str = None
+    wipe_key: str = None
+    kyc_key: str = None
+    pause_key: str = None
+    treasury_account_id: str = None
+    # Extra fields from frontend
+    description: str = None
+    category: str = None
+    # Auth identity (passed by Express after verifying JWT)
+    auth0_id: str = None
+
+class InvestRequest(BaseModel):
+    auth0_id: str
+    token_id: str
+    asset_name: str
+    symbol: str
+    amount: int
+    price_per_unit: float = 0.0
+    tx_id: str = None
+
+
+# ── Balance ────────────────────────────────────────────────────────────────
+
 @app.get("/balance")
 def get_account_balance(account_id: str):
     if not client:
         return {"error": "Client not initialized"}
-    
     try:
-        acc_id = AccountId.from_string(account_id)
+        acc_id  = AccountId.from_string(account_id)
         balance = CryptoGetAccountBalanceQuery().set_account_id(acc_id).execute(client)
-        print(f"HBAR tinybars: {balance.hbars.to_tinybars()}")
-        print(f"Tokens: {balance.tokens}")
         return {
             "hbars": str(balance.hbars),
             "tinybars": str(balance.hbars.to_tinybars()),
@@ -64,97 +115,149 @@ def get_account_balance(account_id: str):
         return {"error": str(e)}
 
 
-# Request Models
+# ── Create Token ───────────────────────────────────────────────────────────
+
 @app.post("/create-token")
-def create_token(
-    name: str,
-    symbol: str,
-    decimals: int,
-    initial_supply: int,
-    max_supply: int,
-    token_type: str = "FUNGIBLE_COMMON",     # default as in MD example (FUNGIBLE_COMMON)
-    supply_type: str = "FINITE",             # default as in MD example (FINITE)
-    freeze_default: bool = False,
-    admin_key: str = None, 
-    supply_key: str = None,
-    freeze_key: str = None,
-    wipe_key: str = None,
-    kyc_key: str = None,
-    pause_key: str = None,
-    treasury_account_id: str = None
-):
+def create_token(request: CreateTokenRequest):
     if not client:
         return {"error": "Client not initialized"}
 
     try:
-        # Determine Enum types
-        tk_type = TokenType.FUNGIBLE_COMMON
-        if token_type == "NON_FUNGIBLE_UNIQUE":
-            tk_type = TokenType.NON_FUNGIBLE_UNIQUE
-        
-        sp_type = SupplyType.FINITE
-        if supply_type == "INFINITE":
-            sp_type = SupplyType.INFINITE
+        tk_type = TokenType.NON_FUNGIBLE_UNIQUE if request.token_type == "NON_FUNGIBLE_UNIQUE" else TokenType.FUNGIBLE_COMMON
+        sp_type = SupplyType.INFINITE if request.supply_type == "INFINITE" else SupplyType.FINITE
 
         transaction = TokenCreateTransaction()
-        
-        # Set basic properties
-        transaction.set_token_name(name)
-        transaction.set_token_symbol(symbol)
+        transaction.set_token_name(request.name)
+        transaction.set_token_symbol(request.symbol)
         transaction.set_token_type(tk_type)
-        transaction.set_decimals(decimals)
-        transaction.set_initial_supply(initial_supply)
-        transaction.set_max_supply(max_supply)
+        transaction.set_decimals(request.decimals)
+        transaction.set_initial_supply(request.initial_supply)
+        transaction.set_max_supply(request.max_supply)
         transaction.set_supply_type(sp_type)
-        transaction.set_freeze_default(freeze_default)
+        transaction.set_freeze_default(request.freeze_default)
 
-        # Handle Treasury 
         treasury_id = operator_id
-        if treasury_account_id:
-             treasury_id = AccountId.from_string(treasury_account_id)
+        if request.treasury_account_id:
+            treasury_id = AccountId.from_string(request.treasury_account_id)
         transaction.set_treasury_account_id(treasury_id)
 
-        # Handle Keys (if provided)
-        if admin_key:
-            transaction.set_admin_key(PrivateKey.from_string(admin_key).public_key())
-        if supply_key:
-            transaction.set_supply_key(PrivateKey.from_string(supply_key).public_key())
-        if freeze_key:
-            transaction.set_freeze_key(PrivateKey.from_string(freeze_key).public_key())
-        if wipe_key:
-            transaction.set_wipe_key(PrivateKey.from_string(wipe_key).public_key())
-        if kyc_key:
-            transaction.set_kyc_key(PrivateKey.from_string(kyc_key).public_key())
-        if pause_key:
-            transaction.set_pause_key(PrivateKey.from_string(pause_key).public_key())
+        if request.admin_key:
+            transaction.set_admin_key(PrivateKey.from_string(request.admin_key).public_key())
+        if request.supply_key:
+            transaction.set_supply_key(PrivateKey.from_string(request.supply_key).public_key())
+        if request.freeze_key:
+            transaction.set_freeze_key(PrivateKey.from_string(request.freeze_key).public_key())
+        if request.wipe_key:
+            transaction.set_wipe_key(PrivateKey.from_string(request.wipe_key).public_key())
+        if request.kyc_key:
+            transaction.set_kyc_key(PrivateKey.from_string(request.kyc_key).public_key())
+        if request.pause_key:
+            transaction.set_pause_key(PrivateKey.from_string(request.pause_key).public_key())
 
-        # Freeze
         transaction.freeze_with(client)
 
-        # Sign with treasury key (operator by default)
-        # If user provides a different treasury, they would need to sign.
-        # Here we assume operator key is the treasury key or has permission.
-        # But if treasury is different, we must sign with that key.
-        # For simplicity based on MD example where operator is treasury:
-        if treasury_id.to_string() == operator_id.to_string():
-             transaction.sign(operator_key)
-        
-        # If keys are set, we might need to sign with admin key? 
-        # MD example says: `transaction.sign(admin_key) # Required since admin key exists`
-        if admin_key:
-             transaction.sign(PrivateKey.from_string(admin_key))
+        if str(treasury_id) == str(operator_id):
+            transaction.sign(operator_key)
+        if request.admin_key:
+            transaction.sign(PrivateKey.from_string(request.admin_key))
 
-        response = transaction.execute(client)
-        
+        # execute() returns TransactionReceipt directly in this SDK version
+        receipt       = transaction.execute(client)
+        token_id_str  = str(receipt.token_id)
+
+        # ── Persist to MongoDB marketplace ──────────────────────────────
+        if marketplace_col is not None:
+            doc = {
+                "token_id":     token_id_str,
+                "name":         request.name,
+                "symbol":       request.symbol,
+                "description":  request.description or "",
+                "category":     request.category or "Other",
+                "decimals":     request.decimals,
+                "initial_supply": request.initial_supply,
+                "max_supply":   request.max_supply,
+                "available":    request.initial_supply,   # starts as full supply
+                "supply_type":  request.supply_type,
+                "token_type":   request.token_type,
+                "price":        0,                        # price set later; 0 = market determines
+                "created_by":   request.auth0_id or "unknown",
+                "created_at":   datetime.now(timezone.utc).isoformat(),
+            }
+            try:
+                marketplace_col.insert_one(doc)
+            except Exception as db_err:
+                print(f"DB insert warning: {db_err}")   # token still created, just log
+
         return {
-            "status": "success",
-            "token_id": str(receipt.token_id),
-            "name": name,
-            "symbol": symbol
+            "status":   "success",
+            "token_id": token_id_str,
+            "name":     request.name,
+            "symbol":   request.symbol,
+            "category": request.category,
         }
-        
+
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# ── Marketplace Listing ────────────────────────────────────────────────────
+
+@app.get("/marketplace")
+def get_marketplace():
+    if marketplace_col is None:
+        return []
+    try:
+        assets = list(marketplace_col.find({}, {"_id": 0}))
+        return assets
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── Portfolio: Record Investment ───────────────────────────────────────────
+
+@app.post("/portfolio/invest")
+def portfolio_invest(req: InvestRequest):
+    if portfolio_col is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    try:
+        doc = {
+            "auth0_id":       req.auth0_id,
+            "token_id":       req.token_id,
+            "asset_name":     req.asset_name,
+            "symbol":         req.symbol,
+            "amount":         req.amount,
+            "price_per_unit": req.price_per_unit,
+            "total_cost":     req.amount * req.price_per_unit,
+            "tx_id":          req.tx_id or "",
+            "status":         "confirmed",
+            "created_at":     datetime.now(timezone.utc).isoformat(),
+        }
+        portfolio_col.insert_one(doc)
+        # Reduce available supply on the marketplace listing
+        if marketplace_col is not None:
+            marketplace_col.update_one(
+                {"token_id": req.token_id},
+                {"$inc": {"available": -req.amount}}
+            )
+        return {"status": "success", "investment": doc}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Portfolio: Get User Holdings ───────────────────────────────────────────
+
+@app.get("/portfolio")
+def get_portfolio(auth0_id: str):
+    if portfolio_col is None:
+        return []
+    try:
+        holdings = list(portfolio_col.find({"auth0_id": auth0_id}, {"_id": 0}))
+        return holdings
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── Create Account ─────────────────────────────────────────────────────────
 
 class CreateAccountRequest(BaseModel):
     initial_balance: float
@@ -164,11 +267,9 @@ class CreateAccountRequest(BaseModel):
 def create_account(request: CreateAccountRequest):
     if not client:
         return {"error": "Client not initialized"}
-
     try:
         new_private_key = PrivateKey.generate_ed25519()
-        new_public_key = new_private_key.public_key()
-
+        new_public_key  = new_private_key.public_key()
         transaction = (
             AccountCreateTransaction()
             .set_key_without_alias(new_public_key)
@@ -176,85 +277,77 @@ def create_account(request: CreateAccountRequest):
             .set_account_memo(request.memo)
             .freeze_with(client)
         )
-        
-        # Sign with client operator key (payer)
         transaction.sign(operator_key)
-        # Sign with new key (required)
         transaction.sign(new_private_key)
-        
-        rec = transaction.execute(client)
-        receipt = rec.account_id
-        
+        receipt = transaction.execute(client)
+        new_account_id = str(receipt.account_id)
         return {
-            "status": "success",
-            "account_id": str(receipt),
-            "public_key": new_public_key.to_string(),
+            "status":          "success",
+            "account_id":      new_account_id,
+            "public_key":      str(new_public_key),
             "initial_balance": request.initial_balance,
-            "memo": request.memo
+            "memo":            request.memo,
         }
-        
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# ── Transactions via Mirror Node ───────────────────────────────────────────
 
 @app.get("/transactions/{account_id}")
 def get_transactions(account_id: str):
     base = "https://testnet.mirrornode.hedera.com"
-    url = f"{base}/api/v1/transactions?account.id={account_id}&limit=100&order=desc"
+    url  = f"{base}/api/v1/transactions?account.id={account_id}&limit=100&order=desc"
     all_transactions = []
-    
     try:
         while url:
             res = requests.get(url)
             res.raise_for_status()
             data = res.json()
-            
             for tx in data.get("transactions", []):
                 all_transactions.append({
                     "transaction_id": tx["transaction_id"],
-                    "name": tx["name"],
-                    "result": tx["result"]
+                    "name":           tx["name"],
+                    "result":         tx["result"],
                 })
-            
             next_link = data.get("links", {}).get("next")
             url = f"{base}{next_link}" if next_link else None
-            
         return {"account_id": account_id, "transactions": all_transactions}
     except Exception as e:
         return {"error": str(e)}
 
 
+# ── Mint Token ─────────────────────────────────────────────────────────────
+
 @app.post("/mint-token")
 def mint_token(token_id: str, amount: int, admin_key: str):
     if not client:
         return {"error": "Client not initialized"}
-
     try:
         transaction = (
             TokenMintTransaction()
             .set_token_id(token_id)
-            .set_amount(amount) # lowest denomination, must be positive and not zero
+            .set_amount(amount)
             .freeze_with(client)
         )
         transaction.sign(operator_key)
         transaction.sign(PrivateKey.from_string(admin_key))
-
-        response = transaction.execute(client)
-        receipt = response.get_receipt(client)
-
+        receipt = transaction.execute(client)
         return {
-            "status": "success",
+            "status":           "success",
             "new_total_supply": str(receipt.total_supply),
-            "transaction_id": str(response.transaction_id)
+            "transaction_id":   str(receipt.transaction_id),
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
+# ── Transfer Token ─────────────────────────────────────────────────────────
+
 @app.post("/transfer-token")
 def transfer_token(token_id: str, recipient_id: str, amount: int):
     if not client:
         return {"error": "Client not initialized"}
-    
     try:
         transaction = (
             TransferTransaction()
@@ -263,133 +356,17 @@ def transfer_token(token_id: str, recipient_id: str, amount: int):
             .freeze_with(client)
         )
         transaction.sign(operator_key)
-        
-        response = transaction.execute(client)
-        receipt = response.get_receipt(client)
-        
+        receipt = transaction.execute(client)
         return {
-            "status": "success",
-            "transaction_id": str(response.transaction_id)
+            "status":         "success",
+            "transaction_id": str(receipt.transaction_id),
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
+# ── Entry Point ────────────────────────────────────────────────────────────
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-### working code
-
-
-from hiero_sdk_python import (
-    Network,
-    Client,
-    AccountId,
-    PrivateKey,
-    CryptoGetAccountBalanceQuery,
-    TokenCreateTransaction,
-    TokenType,
-    SupplyType,
-    AccountInfoQuery,
-    AccountCreateTransaction,
-    TransactionReceipt
-)
-import os
-from dotenv import load_dotenv
-from fastapi import FastAPI
-from pydantic import BaseModel
-
-
-
-load_dotenv()
-app = FastAPI()
-@app.get("")
-def get_account_balance():
-    network = Network("testnet")
-    client = Client(network)
-
-    operator_id = AccountId.from_string(os.getenv("OPERATOR_ID"))
-    operator_key = PrivateKey.from_string_ed25519(os.getenv("OPERATOR_KEY"))
-
-    client.set_operator(operator_id, operator_key)
-
-    balance = CryptoGetAccountBalanceQuery(
-        account_id=operator_id
-    ).execute(client)
-
-    print(f"balance = {balance.hbars}")
-
-#tx = (
-#    TokenCreateTransaction()
-#    .set_token_name("zephyr")
-#    .set_token_symbol("zph")
-#    .set_token_type(TokenType.FUNGIBLE_COMMON)
-#    .set_decimals(6)
-#    .set_initial_supply(10_000)
-#    .set_supply_type(SupplyType.FINITE)
-#    .set_max_supply(10_000)
-#
-#    # ONLY REQUIRED FIELD
-#    .set_treasury_account_id(operator_id)
-#
-#    .freeze_with(client)
-#)
-
-
-## ONE signature is enough
-#tx.sign(operator_key)
-
-#response = tx.execute(client)
-#print('token created')
-#info = AccountInfoQuery(account_id=operator_id).execute(client)
-#print(f"Account ID: {info.account_id}")
-#print(f"Account Public Key: {info.key.to_string()}")
-#print(f"Account Balance: {info.balance}")
-#print(f"Account Memo: '{info.account_memo}'")
-#print(f"Owned NFTs: {info.owned_nfts}")
-#print(f"Token Relationships: {info.token_relationships}")
-
-
-new_account_private_key = PrivateKey.generate_ed25519()
-new_public_key = new_account_private_key.public_key()
-
-transaction = (
-        AccountCreateTransaction()
-        .set_key_without_alias(new_public_key)
-        .set_initial_balance(10)
-        .set_account_memo("testusingcode-1")
-        .freeze_with(client)
-    )
-transaction.sign(client.operator_private_key)
-rec = transaction.execute(client)
-print(rec.account_id)
-print(new_account_private_key.to_string())
-print(new_public_key.to_string())
-
-#info = AccountInfoQuery(account_id=operator_id).execute(client)
-#print(f"Account ID: {info.account_id}")
-#print(f"Account Public Key: {info.key.to_string()}")
-#print(f"Account Balance: {info.balance}")
-#print(f"Account Memo: '{info.account_memo}'")
-#print(f"Owned NFTs: {info.owned_nfts}")
-#print(f"Token Relationships: {info.token_relationships}")
-'''
-
-# Start the server
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

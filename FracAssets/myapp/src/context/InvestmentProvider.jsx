@@ -44,14 +44,14 @@ export const InvestmentProvider = ({ children }) => {
     }
   };
 
-  const invest = async (assetId, amount) => {
+  const invest = async (assetData) => {
     if (!token) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      await investInAsset(token, assetId, amount);
+      await investInAsset(token, assetData);
       await fetchPortfolio(); // refresh portfolio
     } catch (err) {
       setError(err.message);

@@ -21,13 +21,16 @@ export const AuthProvider = ({ children }) => {
         try {
           const accessToken = await getAccessTokenSilently();
           setToken(accessToken);
-          localStorage.setItem("token", accessToken); // For non-react-query api calls if needed
+          localStorage.setItem("token", accessToken);
+          // Store sub so api.js can send it as x-user-sub header
+          if (user?.sub) localStorage.setItem("auth0_sub", user.sub);
         } catch (e) {
           console.error("Error getting access token", e);
         }
       } else {
         setToken(null);
         localStorage.removeItem("token");
+        localStorage.removeItem("auth0_sub");
       }
     };
     getToken();

@@ -53,6 +53,10 @@ const TokenizeAsset = () => {
         setError(null);
         try {
             const result = await tokenizeAsset(token, form);
+            // Python API returns {status:"error", message:"..."} with HTTP 200 on SDK failures
+            if (!result || result.status === "error") {
+                throw new Error(result?.message || "Token creation failed");
+            }
             setSuccess(result);
         } catch (err) {
             setError(err.message);
@@ -180,8 +184,8 @@ const TokenizeAsset = () => {
                                         type="button"
                                         onClick={() => setForm((p) => ({ ...p, category: cat }))}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${form.category === cat
-                                                ? "bg-indigo-600 border-indigo-500 text-white"
-                                                : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
+                                            ? "bg-indigo-600 border-indigo-500 text-white"
+                                            : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
                                             }`}
                                     >
                                         {CATEGORY_ICONS[cat]} {cat}
