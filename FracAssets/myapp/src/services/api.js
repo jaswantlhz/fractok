@@ -1,6 +1,6 @@
 const BASE_URL = "http://localhost:5000/api";
 const HEDERA_URL = "http://localhost:8000";  // testnet_test.py — token ops
-const ONBOARDING_URL = "http://localhost:8001"; // user_onboarding.py — signups
+const ONBOARDING_URL = "http://localhost:8002"; // user_onboarding.py — signups
 
 // ─────────────────────────────────────────────
 // Helper: Handle Response
@@ -28,10 +28,16 @@ export const loginUser = async (email, password) => {
 // ─────────────────────────────────────────────
 // USER REGISTRATION (Python API)
 // ─────────────────────────────────────────────
-export const registerUser = async (userData) => {
-  const res = await fetch(`${ONBOARDING_URL}/register`, {
+// ─────────────────────────────────────────────
+// USER SYNC (Auth0 + MetaMask)
+// ─────────────────────────────────────────────
+export const syncUser = async (token, userData) => {
+  const res = await fetch(`${ONBOARDING_URL}/sync-user`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
     body: JSON.stringify(userData),
   });
   return handleResponse(res);

@@ -8,10 +8,13 @@ import {
   isNoAccountError,
   createHederaAccountViaBackend,
 } from "../services/hederaService";
+import { syncUser } from "../services/api";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const WalletContext = createContext();
 
 export const WalletProvider = ({ children }) => {
+  const { getAccessTokenSilently } = useAuth0();
   const [connected, setConnected] = useState(false);
   const [snapInstalled, setSnapInstalled] = useState(false);
   const [walletAddress, setWalletAddress] = useState(null);
@@ -85,24 +88,32 @@ export const WalletProvider = ({ children }) => {
           null;
       } catch (snapErr) {
         if (isNoAccountError(snapErr)) {
-          // ── No Hedera account yet — create one via backend ──────────────
+          // ── No Hedera account yet — create via backend (Sync Service) ──
           status(
-            "No Hedera account found for this address. Creating one on testnet (this may take ~5s)..."
+            "No Hedera account found. Creating one via Sync Service..."
           );
           try {
-            const created = await createHederaAccountViaBackend(evmAddress);
-            accountId = created?.account_id ?? created?.accountId ?? null;
+            // Get Auth0 Token
+            const token = await getAccessTokenSilently();
+            if (!token) throw new Error("Not authenticated with Auth0");
+
+            // Call Sync User (creates account if missing)
+            const synced = await syncUser(token, {
+              wallet_address: evmAddress,
+              // hedera_account_id: null (backend will generate)
+            });
+
+            accountId = synced.hedera_account_id;
 
             if (!accountId) {
               throw new Error("Account created but ID not returned.");
             }
 
             status(`Hedera account created: ${accountId}`);
-            // Store mapping so the Snap can pick it up on next invoke
-            // (user may need to re-open MetaMask to sync — we surface this)
+            // Note: Snap might not know about it yet until next refresh
           } catch (createErr) {
             throw new Error(
-              `Could not create Hedera account: ${createErr.message}`
+              `Could not create/sync Hedera account: ${createErr.message}`
             );
           }
         } else {

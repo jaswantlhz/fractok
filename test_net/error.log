@@ -1,0 +1,197 @@
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): 'AccountCreateTransaction' object has no attribute 'set_evm_address'
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 154, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 141, in sync_user
+    .set_evm_address(evm_bytes) # Use set_evm_address for alias
+     ^^^^^^^^^^^^^^^
+AttributeError: 'AccountCreateTransaction' object has no attribute 'set_evm_address'
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): alias_evm_address must be of type str or EvmAddress
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 154, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 141, in sync_user
+    .set_alias(evm_bytes) # Use set_alias instead of set_evm_address
+     ~~~~~~~~~^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_create_transaction.py", line 242, in set_alias
+    raise TypeError("alias_evm_address must be of type str or EvmAddress")
+TypeError: alias_evm_address must be of type str or EvmAddress
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): alias_evm_address must be of type str or EvmAddress
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 154, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 141, in sync_user
+    .set_alias(evm_bytes) # Use set_alias instead of set_evm_address
+     ~~~~~~~~~^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_create_transaction.py", line 242, in set_alias
+    raise TypeError("alias_evm_address must be of type str or EvmAddress")
+TypeError: alias_evm_address must be of type str or EvmAddress
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): alias_evm_address must be of type str or EvmAddress
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 154, in sync_user
+    print(f"Hedera Creation Failed: {hedera_err}")
+    ^^^^^^^^^^^^^^^^
+  File "F:\fracassets\test_net\user_onboarding.py", line 141, in sync_user
+    transaction = (
+        ^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_create_transaction.py", line 242, in set_alias
+    raise TypeError("alias_evm_address must be of type str or EvmAddress")
+TypeError: alias_evm_address must be of type str or EvmAddress
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): Key must be set before building the transaction.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 158, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    .freeze_with(client)
+     ~~~~~~~~~~~^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transaction.py", line 327, in freeze_with
+    self._transaction_body_bytes[node._account_id] = self.build_transaction_body().SerializeToString()
+                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_create_transaction.py", line 355, in build_transaction_body
+    crypto_create_body = self._build_proto_body()
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_create_transaction.py", line 319, in _build_proto_body
+    raise ValueError("Key must be set before building the transaction.")
+ValueError: Key must be set before building the transaction.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): account_id must be an AccountId instance.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 175, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    .add_hbar_transfer(EvmAddress(evm_bytes), Hbar(10)) # To EVM Address (Lazy Create)
+     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 109, in add_hbar_transfer
+    self._add_hbar_transfer(account_id, amount, False)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 79, in _add_hbar_transfer
+    raise TypeError("account_id must be an AccountId instance.")
+TypeError: account_id must be an AccountId instance.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): account_id must be an AccountId instance.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 175, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    .add_hbar_transfer(EvmAddress(evm_bytes), Hbar(10)) # To EVM Address (Lazy Create)
+     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 109, in add_hbar_transfer
+    self._add_hbar_transfer(account_id, amount, False)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 79, in _add_hbar_transfer
+    raise TypeError("account_id must be an AccountId instance.")
+TypeError: account_id must be an AccountId instance.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): account_id must be an AccountId instance.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 175, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    .add_hbar_transfer(EvmAddress(evm_bytes), Hbar(10)) # To EVM Address (Lazy Create)
+     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 109, in add_hbar_transfer
+    self._add_hbar_transfer(account_id, amount, False)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 79, in _add_hbar_transfer
+    raise TypeError("account_id must be an AccountId instance.")
+TypeError: account_id must be an AccountId instance.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): account_id must be an AccountId instance.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 175, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    .add_hbar_transfer(EvmAddress(evm_bytes), Hbar(10)) # To EVM Address (Lazy Create)
+     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 109, in add_hbar_transfer
+    self._add_hbar_transfer(account_id, amount, False)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 79, in _add_hbar_transfer
+    raise TypeError("account_id must be an AccountId instance.")
+TypeError: account_id must be an AccountId instance.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): account_id must be an AccountId instance.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 175, in sync_user
+    final_hedera_id = f"0x{evm_bytes.hex()}"
+    ^^^^^^^^^^^^
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    .add_hbar_transfer(operator_id, Hbar(-10)) # Send 10 Hbar
+     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^~~~~~~~~~
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 109, in add_hbar_transfer
+    self._add_hbar_transfer(account_id, amount, False)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 79, in _add_hbar_transfer
+    raise TypeError("account_id must be an AccountId instance.")
+TypeError: account_id must be an AccountId instance.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): account_id must be an AccountId instance.
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 181, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 149, in sync_user
+    .add_hbar_transfer(EvmAddress(evm_bytes), Hbar(10)) # To EVM Address (Lazy Create)
+     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 109, in add_hbar_transfer
+    self._add_hbar_transfer(account_id, amount, False)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\transaction\transfer_transaction.py", line 79, in _add_hbar_transfer
+    raise TypeError("account_id must be an AccountId instance.")
+TypeError: account_id must be an AccountId instance.
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): AccountId.from_evm_address() missing 2 required positional arguments: 'shard' and 'realm'
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 185, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    evm_account_id_for_transfer = AccountId.from_evm_address(evm_address_str)
+TypeError: AccountId.from_evm_address() missing 2 required positional arguments: 'shard' and 'realm'
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): AccountId.from_evm_address() missing 2 required positional arguments: 'shard' and 'realm'
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 185, in sync_user
+    # Ensure we don't crash the sync, but we return no ID
+  File "F:\fracassets\test_net\user_onboarding.py", line 148, in sync_user
+    # Shard and realm are both 0 on testnet/mainnet.
+TypeError: AccountId.from_evm_address() missing 2 required positional arguments: 'shard' and 'realm'
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): evm_address must be a str or EvmAddress, got int
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 186, in sync_user
+    raise hedera_err
+  File "F:\fracassets\test_net\user_onboarding.py", line 149, in sync_user
+    evm_account_id_for_transfer = AccountId.from_evm_address(0, 0, evm_address_str)
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_id.py", line 163, in from_evm_address
+    raise TypeError(
+        f"evm_address must be a str or EvmAddress, got {type(evm_address).__name__}"
+    )
+TypeError: evm_address must be a str or EvmAddress, got int
+
+-------------------
+Error syncing user (Auth0 ID: google-oauth2|101273302049606955531): evm_address must be a str or EvmAddress, got int
+Traceback (most recent call last):
+  File "F:\fracassets\test_net\user_onboarding.py", line 186, in sync_user
+  File "F:\fracassets\test_net\user_onboarding.py", line 149, in sync_user
+  File "F:\miniconda\envs\hiero\Lib\site-packages\hiero_sdk_python\account\account_id.py", line 163, in from_evm_address
+    raise TypeError(
+        f"evm_address must be a str or EvmAddress, got {type(evm_address).__name__}"
+    )
+TypeError: evm_address must be a str or EvmAddress, got int
+
+-------------------

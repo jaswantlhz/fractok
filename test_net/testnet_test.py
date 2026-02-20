@@ -16,6 +16,8 @@ from hiero_sdk_python import (
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import requests
 
 
@@ -34,6 +36,14 @@ except Exception as e:
     client = None
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/balance")
 def get_account_balance(account_id: str):
@@ -146,11 +156,12 @@ def create_token(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+class CreateAccountRequest(BaseModel):
+    initial_balance: float
+    memo: str = None
+
 @app.post("/create-account")
-def create_account(
-    initial_balance: float,
-    memo: str = None,  # Default from MD example
-):
+def create_account(request: CreateAccountRequest):
     if not client:
         return {"error": "Client not initialized"}
 
@@ -161,13 +172,15 @@ def create_account(
         transaction = (
             AccountCreateTransaction()
             .set_key_without_alias(new_public_key)
-            .set_initial_balance(Hbar(initial_balance))
-            .set_account_memo(memo)
+            .set_initial_balance(Hbar(request.initial_balance))
+            .set_account_memo(request.memo)
             .freeze_with(client)
         )
         
         # Sign with client operator key (payer)
         transaction.sign(operator_key)
+        # Sign with new key (required)
+        transaction.sign(new_private_key)
         
         rec = transaction.execute(client)
         receipt = rec.account_id
@@ -176,8 +189,8 @@ def create_account(
             "status": "success",
             "account_id": str(receipt),
             "public_key": new_public_key.to_string(),
-            "initial_balance": initial_balance,
-            "memo": memo
+            "initial_balance": request.initial_balance,
+            "memo": request.memo
         }
         
     except Exception as e:
@@ -375,3 +388,8 @@ print(new_public_key.to_string())
 #print(f"Owned NFTs: {info.owned_nfts}")
 #print(f"Token Relationships: {info.token_relationships}")
 '''
+
+# Start the server
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

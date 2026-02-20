@@ -1,6 +1,9 @@
-const jwt = require("jsonwebtoken");
+const fetch = require("node-fetch");
+require("dotenv").config();
 
-const verifyToken = (req, res, next) => {
+// Verify Auth0 Token via /userinfo endpoint
+// This works even if the token is opaque (no audience)
+const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
@@ -8,11 +11,25 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, "secretkey");
-    req.user = decoded;
+    const issuer = process.env.AUTH0_ISSUER_BASE_URL;
+    // Ensure trailing slash logic
+    const baseUrl = issuer.endsWith("/") ? issuer : issuer + "/";
+    const userinfoUrl = `${baseUrl}userinfo`;
+
+    const response = await fetch(userinfoUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      throw new Error("Token validation failed");
+    }
+
+    const user = await response.json();
+    req.user = user; // Attach user profile to request
     next();
   } catch (error) {
-    return res.status(401).json({ message: "Invalid token" });
+    console.error("Auth Error:", error.message);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 

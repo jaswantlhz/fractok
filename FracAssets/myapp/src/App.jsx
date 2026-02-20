@@ -12,6 +12,7 @@ import Navbar from "./pages/Navbar";
 import Marketplace from "./pages/Marketplace";
 import TokenizeAsset from "./pages/TokenizeAsset";
 import Register from "./pages/Register";
+import Callback from "./pages/Callback";
 
 // Contexts
 import { useAuth } from "./context/AuthContext";
@@ -33,6 +34,7 @@ const App = () => {
           {/* Public */}
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/callback" element={<Callback />} />
 
           {/* Protected */}
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />

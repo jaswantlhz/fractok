@@ -1,0 +1,31 @@
+import React, { useEffect, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { useWallet } from "../context/WalletContext";
+import { useNavigate } from "react-router-dom";
+import { syncUser } from "../services/api";
+
+// Styles (Tailwind)
+// ...
+
+const Onboarding = () => {
+    const { loginWithRedirect, isAuthenticated, user, getAccessTokenSilently } = useAuth0();
+    const { connectWallet, connected, walletAddress, hederaAccountId } = useWallet();
+    const navigate = useNavigate();
+
+    // Steps: 1. Login, 2. Connect Wallet, 3. Sync & Finish
+
+    const handleSync = async () => {
+         // Sync is handled by WalletContext automatically when creating account
+         // But if account already exists in Snap, we still need to sync Auth0 <-> Wallet in Backend?
+         // YES. User might have wallet but not linked to Auth0 profile in DB.
+         
+         const token = await getAccessTokenSilently();
+         await syncUser(token, {
+             wallet_address: walletAddress,
+             hedera_account_id: hederaAccountId
+         });
+         navigate("/dashboard");
+    };
+
+    // ... Render Logic
+};

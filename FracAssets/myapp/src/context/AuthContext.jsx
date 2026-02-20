@@ -1,50 +1,55 @@
-import React, { createContext, useContext, useState } from "react";
-import { loginUser } from "../services/api";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user")) || null
-  );
-  const [token, setToken] = useState(localStorage.getItem("token") || null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const {
+    user,
+    isAuthenticated,
+    isLoading,
+    loginWithRedirect,
+    logout: auth0Logout,
+    getAccessTokenSilently,
+  } = useAuth0();
 
-  const isAuthenticated = !!token;
+  const [token, setToken] = useState(null);
 
-  const login = async (email, password) => {
-    try {
-      setLoading(true);
-      setError(null);
+  useEffect(() => {
+    const getToken = async () => {
+      if (isAuthenticated) {
+        try {
+          const accessToken = await getAccessTokenSilently();
+          setToken(accessToken);
+          localStorage.setItem("token", accessToken); // For non-react-query api calls if needed
+        } catch (e) {
+          console.error("Error getting access token", e);
+        }
+      } else {
+        setToken(null);
+        localStorage.removeItem("token");
+      }
+    };
+    getToken();
+  }, [isAuthenticated, getAccessTokenSilently]);
 
-      const data = await loginUser(email, password);
-
-      setToken(data.token);
-      setUser(data.user);
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      return true;
-    } catch (err) {
-      setError(err.message);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const login = () => loginWithRedirect();
   const logout = () => {
-    setUser(null);
-    setToken(null);
+    auth0Logout({ logoutParams: { returnTo: window.location.origin } });
     localStorage.removeItem("token");
-    localStorage.removeItem("user");
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated, login, logout, loading, error }}
+      value={{
+        user,
+        token,
+        isAuthenticated,
+        login,
+        logout,
+        loading: isLoading,
+        getAccessTokenSilently
+      }}
     >
       {children}
     </AuthContext.Provider>
